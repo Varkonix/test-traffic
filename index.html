@@ -372,6 +372,9 @@
             <div class="context-item">🌐 ISP: <span id="ctx-isp">Detectando...</span></div>
             <div class="context-item">💻 Sistema: <span id="ctx-sys">Cargando...</span></div>
         </div>
+        <div class="context-info" style="margin-top: 1rem;">
+            <div class="context-item" style="border-color: var(--neon-cyan);">🌎 Pings - SA: <span id="res-ping-sa">...</span> | USA: <span id="res-ping-us">...</span> | EU: <span id="res-ping-eu">...</span></div>
+        </div>
     </header>
 
     <main class="dashboard">
@@ -528,6 +531,7 @@
         }
         
         loadContext();
+        measureRegionalPings();
 
         // --- Core Variables ---
         const CONCURRENT_CONNECTIONS = 5;
@@ -833,7 +837,7 @@
             testData[phaseId].totalBytes = totalBytesLoaded;
         }
 
-        // --- Main Flow ---
+        // --- Regional Pings (Ejecutado al inicio) ---
         async function measureRegionalPings() {
             const regions = [
                 { id: 'sa', url: 'https://dynamodb.sa-east-1.amazonaws.com/' },
@@ -850,11 +854,13 @@
                     const start = performance.now();
                     await fetch(r.url, { mode: 'no-cors', cache: 'no-store' });
                     const latency = performance.now() - start;
-                    const el = document.getElementById(`res-ping-${r.id}`);
-                    if (el) el.innerText = latency.toFixed(0) + ' ms';
+                    
+                    // Actualizar todos los elementos que tengan el ID del ping (en header y en resultados)
+                    const els = document.querySelectorAll(`#res-ping-${r.id}`);
+                    els.forEach(el => el.innerText = latency.toFixed(0) + ' ms');
                 } catch(e) {
-                    const el = document.getElementById(`res-ping-${r.id}`);
-                    if (el) el.innerText = 'Error';
+                    const els = document.querySelectorAll(`#res-ping-${r.id}`);
+                    els.forEach(el => el.innerText = 'Error');
                 }
             }
         }
@@ -871,9 +877,6 @@
 
             setView('view-testing');
             resizeCanvas(liveCanvas);
-
-            // Medir pings regionales en segundo plano
-            measureRegionalPings();
 
             // FASE 1
             const pTitle = document.getElementById('phase-title');
