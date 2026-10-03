@@ -46,7 +46,7 @@
 
         header {
             text-align: center;
-            margin-bottom: 3rem;
+            margin-bottom: 2rem;
             animation: fadeIn 1s ease-out;
         }
 
@@ -178,22 +178,40 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 2rem;
+            margin-bottom: 1rem;
         }
 
         .phase-title {
             font-family: var(--font-display);
             color: var(--neon-cyan);
             font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .phase-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--neon-cyan);
+            box-shadow: 0 0 10px var(--neon-cyan);
         }
 
         .phase-title.p2 {
             color: var(--neon-magenta);
         }
+        .phase-title.p2 .phase-indicator {
+            background: var(--neon-magenta);
+            box-shadow: 0 0 10px var(--neon-magenta);
+        }
 
         .speed-display {
-            text-align: center;
-            margin: 2rem 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 1.5rem 0 2rem;
+            position: relative;
         }
 
         .speed-value {
@@ -211,19 +229,45 @@
             margin-top: 0.5rem;
         }
 
+        .realtime-bytes {
+            font-family: var(--font-display);
+            color: var(--neon-green);
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-top: 15px;
+            background: rgba(57, 255, 20, 0.1);
+            padding: 8px 20px;
+            border-radius: 30px;
+            border: 1px solid rgba(57, 255, 20, 0.3);
+        }
+
+        .warning-badge {
+            background: var(--neon-magenta);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-family: var(--font-ui);
+            font-size: 1rem;
+            margin-top: 15px;
+            box-shadow: 0 0 15px var(--neon-magenta);
+            display: none;
+            animation: pulse-fast 0.8s infinite;
+        }
+
         .chart-container {
             width: 100%;
-            height: 250px;
-            background: rgba(0,0,0,0.3);
+            height: 280px;
+            background: rgba(0,0,0,0.5);
             border: 1px solid var(--border-dim);
             border-radius: 8px;
             position: relative;
-            padding: 10px;
         }
 
         canvas {
             width: 100%;
             height: 100%;
+            display: block;
         }
 
         /* Results View */
@@ -250,6 +294,15 @@
             border: 1px solid var(--border-dim);
             border-radius: 12px;
             padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .result-card.gaming::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--neon-cyan);
+        }
+        .result-card.download::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--neon-magenta);
         }
 
         .result-card h3 {
@@ -266,9 +319,10 @@
         .stat-row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 1rem;
+            margin-bottom: 0.8rem;
             border-bottom: 1px dashed rgba(255,255,255,0.1);
             padding-bottom: 0.5rem;
+            font-size: 0.95rem;
         }
 
         .stat-row:last-child {
@@ -277,14 +331,8 @@
             padding-bottom: 0;
         }
 
-        .stat-label {
-            color: var(--text-muted);
-        }
-
-        .stat-val {
-            font-weight: 600;
-            font-family: var(--font-display);
-        }
+        .stat-label { color: var(--text-muted); }
+        .stat-val { font-weight: 600; font-family: var(--font-display); }
 
         .error-msg {
             color: var(--neon-magenta);
@@ -299,14 +347,18 @@
             to { opacity: 1; transform: translateY(0); }
         }
         
-        .pulse {
-            animation: pulse 2s infinite;
-        }
+        .pulse { animation: pulse 2s infinite; }
+        .pulse-fast { animation: pulse-fast 0.8s infinite; }
 
         @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.5; }
             100% { opacity: 1; }
+        }
+        @keyframes pulse-fast {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
         }
 
     </style>
@@ -326,9 +378,9 @@
         
         <!-- Idle State -->
         <div id="view-idle" class="view active">
-            <p>Este test mide tu conexión real en dos escenarios:<br>
-            <strong>1. Simulación Gaming:</strong> Tráfico constante durante 15s para medir estabilidad.<br>
-            <strong>2. Descarga Pesada:</strong> Descarga de un archivo de 50MB para medir capacidad bruta.</p>
+            <p>Este test mide tu conexión real en dos escenarios EXIGENTES:<br><br>
+            <strong>1. Simulación Gaming:</strong> Múltiples flujos simultáneos de descarga constante durante 20s.<br>
+            <strong>2. Descarga Pesada:</strong> Transferencias paralelas masivas por 20s para saturar el ancho de banda.</p>
             <button class="btn" id="btn-start" onclick="startTest()">Iniciar Análisis</button>
             <div id="global-error" class="error-msg"></div>
         </div>
@@ -336,13 +388,22 @@
         <!-- Testing State -->
         <div id="view-testing" class="view">
             <div class="test-header">
-                <div class="phase-title pulse" id="phase-title">FASE 1: Carga Gaming</div>
-                <div style="color: var(--text-muted);" id="phase-timer">00:00</div>
+                <div class="phase-title pulse" id="phase-title">
+                    <div class="phase-indicator"></div> FASE 1: Carga Gaming
+                </div>
+                <div style="text-align: right;">
+                    <div id="phase-timer" style="color: var(--text-muted); font-size: 1.2rem; font-family: var(--font-display);">0.0s</div>
+                    <div id="current-ping" style="color: var(--neon-cyan); font-weight: bold; font-family: var(--font-display); margin-top: 5px;">PING: -- ms</div>
+                </div>
             </div>
             
             <div class="speed-display">
                 <div class="speed-value" id="current-speed">0.0</div>
                 <div class="speed-unit">Mbps</div>
+                
+                <div class="realtime-bytes" id="current-bytes">0.00 MB descargados</div>
+                <div class="warning-badge" id="warning-nodata">⚠️ SIN RECEPCIÓN DE DATOS (Interrupción)</div>
+                <div id="error-box"></div>
             </div>
 
             <div class="chart-container">
@@ -356,7 +417,7 @@
             
             <div class="results-grid">
                 <div class="result-card gaming">
-                    <h3>■ Fase 1: Gaming</h3>
+                    <h3>■ Fase 1: Carga Gaming (Multihilo)</h3>
                     <div class="stat-row">
                         <span class="stat-label">Velocidad Promedio</span>
                         <span class="stat-val" id="res-p1-mbps">-- Mbps</span>
@@ -366,17 +427,25 @@
                         <span class="stat-val" id="res-p1-mbs">-- MB/s</span>
                     </div>
                     <div class="stat-row">
+                        <span class="stat-label">Total Descargado</span>
+                        <span class="stat-val" id="res-p1-total">-- MB</span>
+                    </div>
+                    <div class="stat-row">
                         <span class="stat-label">Estabilidad</span>
                         <span class="stat-val" id="res-p1-stab">--%</span>
                     </div>
                     <div class="stat-row">
-                        <span class="stat-label">Duración</span>
-                        <span class="stat-val" id="res-p1-time">-- s</span>
+                        <span class="stat-label">Ping (Prom / Min / Max)</span>
+                        <span class="stat-val" id="res-p1-ping">-- / -- / -- ms</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Jitter</span>
+                        <span class="stat-val" id="res-p1-jitter">-- ms</span>
                     </div>
                 </div>
 
                 <div class="result-card download">
-                    <h3>■ Fase 2: Descarga</h3>
+                    <h3>■ Fase 2: Descarga Pesada (Multihilo)</h3>
                     <div class="stat-row">
                         <span class="stat-label">Velocidad Promedio</span>
                         <span class="stat-val" id="res-p2-mbps">-- Mbps</span>
@@ -386,20 +455,28 @@
                         <span class="stat-val" id="res-p2-mbs">-- MB/s</span>
                     </div>
                     <div class="stat-row">
+                        <span class="stat-label">Total Descargado</span>
+                        <span class="stat-val" id="res-p2-total">-- MB</span>
+                    </div>
+                    <div class="stat-row">
                         <span class="stat-label">Estabilidad</span>
                         <span class="stat-val" id="res-p2-stab">--%</span>
                     </div>
                     <div class="stat-row">
-                        <span class="stat-label">Duración</span>
-                        <span class="stat-val" id="res-p2-time">-- s</span>
+                        <span class="stat-label">Ping (Prom / Min / Max)</span>
+                        <span class="stat-val" id="res-p2-ping">-- / -- / -- ms</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Jitter</span>
+                        <span class="stat-val" id="res-p2-jitter">-- ms</span>
                     </div>
                 </div>
             </div>
 
             <div style="margin-bottom: 1rem; color: var(--text-muted); font-size: 0.9rem; text-align: center;">
-                Comparativa de Curvas (Azul: Gaming | Rosa: Descarga)
+                Comparativa de Curvas (Cyan: Gaming | Magenta: Descarga Pesada)
             </div>
-            <div class="chart-container">
+            <div class="chart-container" style="height: 350px;">
                 <canvas id="final-chart"></canvas>
             </div>
 
@@ -413,16 +490,14 @@
     <script>
         // --- Context Detection ---
         async function loadContext() {
-            // OS / Browser
             const ua = navigator.userAgent;
-            let os = "Desconocido";
+            let os = "Desconocido", browser = "Desconocido";
             if (ua.includes("Win")) os = "Windows";
             else if (ua.includes("Mac")) os = "MacOS";
             else if (ua.includes("Linux")) os = "Linux";
             else if (ua.includes("Android")) os = "Android";
             else if (ua.includes("like Mac")) os = "iOS";
             
-            let browser = "Desconocido";
             if (ua.includes("Chrome")) browser = "Chrome";
             else if (ua.includes("Firefox")) browser = "Firefox";
             else if (ua.includes("Safari") && !ua.includes("Chrome")) browser = "Safari";
@@ -430,18 +505,14 @@
             
             document.getElementById('ctx-sys').innerText = `${os} / ${browser}`;
 
-            // IP Data
             try {
                 const res = await fetch('https://ipapi.co/json/');
                 if (res.ok) {
                     const data = await res.json();
                     document.getElementById('ctx-loc').innerText = `${data.city || '?'}, ${data.country_name || '?'}`;
                     document.getElementById('ctx-isp').innerText = data.org || 'Desconocido';
-                } else {
-                    throw new Error("API Limit");
                 }
             } catch (e) {
-                // Fallback
                 document.getElementById('ctx-loc').innerText = 'No detectado';
                 document.getElementById('ctx-isp').innerText = 'No detectado';
             }
@@ -450,18 +521,14 @@
         loadContext();
 
         // --- Core Variables ---
-        const TEST_URLS = {
-            // Cloudflare endpoints to fetch varying amounts of data.
-            // 25MB for Phase 1 (gaming simulation)
-            p1: 'https://speed.cloudflare.com/__down?bytes=25000000',
-            // 50MB for Phase 2 (heavy download)
-            p2: 'https://speed.cloudflare.com/__down?bytes=50000000'
-        };
+        const CONCURRENT_CONNECTIONS = 5;
+        const PHASE_DURATION_MS = 20000; // 20 seconds
+        const TEST_URL = 'https://speed.cloudflare.com/__down?bytes=100000000'; // 100MB chunk per connection
+        const PING_URL = 'https://speed.cloudflare.com/__down?bytes=0';
 
-        let currentPhase = 0;
         let testData = {
-            p1: { points: [], duration: 0, error: false },
-            p2: { points: [], duration: 0, error: false }
+            p1: { points: [], pings: [], totalBytes: 0, error: false },
+            p2: { points: [], pings: [], totalBytes: 0, error: false }
         };
 
         const liveCanvas = document.getElementById('live-chart');
@@ -472,201 +539,286 @@
             document.getElementById(viewId).classList.add('active');
         }
 
-        // --- Drawing Logic ---
+        // --- Charting Engine ---
         function resizeCanvas(canvas) {
             const rect = canvas.parentElement.getBoundingClientRect();
             canvas.width = rect.width;
             canvas.height = rect.height;
         }
 
-        function drawLineChart(canvas, dataPoints, color) {
-            const ctx = canvas.getContext('2d');
-            const w = canvas.width;
-            const h = canvas.height;
-            
+        function drawChartBase(ctx, w, h, maxSpeed, padding, dataPointsArray) {
             ctx.clearRect(0, 0, w, h);
-            if (!dataPoints || dataPoints.length === 0) return;
-
-            const maxSpeed = Math.max(...dataPoints.map(d => d.speed), 10);
+            
+            const chartH = h - padding.top - padding.bottom;
+            
+            // Draw Grid & Y-Axis
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.fillStyle = 'rgba(255,255,255,0.5)';
+            ctx.font = '11px Inter';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
             
             ctx.beginPath();
-            ctx.strokeStyle = color;
+            for (let i = 0; i <= 5; i++) {
+                const y = padding.top + chartH - (i/5)*chartH;
+                const val = (maxSpeed * (i/5)).toFixed(0);
+                
+                ctx.moveTo(padding.left, y);
+                ctx.lineTo(w - padding.right, y);
+                ctx.fillText(val, padding.left - 10, y);
+            }
+            ctx.stroke();
+        }
+
+        function drawLineWithGradient(ctx, points, w, h, maxSpeed, padding, colorHex) {
+            if (points.length === 0) return;
+            
+            const chartW = w - padding.left - padding.right;
+            const chartH = h - padding.top - padding.bottom;
+            
+            const getX = (index) => padding.left + (points.length > 1 ? (index / (points.length - 1)) * chartW : chartW/2);
+            const getY = (speed) => padding.top + chartH - (speed / maxSpeed) * chartH;
+
+            ctx.beginPath();
+            ctx.moveTo(getX(0), getY(points[0].speed));
+            
+            for (let i = 1; i < points.length; i++) {
+                ctx.lineTo(getX(i), getY(points[i].speed));
+            }
+
+            // Stroke
+            ctx.strokeStyle = colorHex;
             ctx.lineWidth = 3;
             ctx.lineJoin = 'round';
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = color;
-
-            dataPoints.forEach((pt, i) => {
-                const x = dataPoints.length > 1 ? (i / (dataPoints.length - 1)) * w : w/2;
-                // Leave 10% padding on top, 10% on bottom
-                const y = h * 0.9 - (pt.speed / maxSpeed) * (h * 0.8); 
-                
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            });
-            
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = colorHex;
             ctx.stroke();
+            
+            // Gradient Fill
+            ctx.lineTo(getX(points.length - 1), padding.top + chartH);
+            ctx.lineTo(getX(0), padding.top + chartH);
+            ctx.closePath();
+            
+            const gradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartH);
+            gradient.addColorStop(0, colorHex + '80'); // 50% opacity
+            gradient.addColorStop(1, colorHex + '00'); // 0% opacity
+            
+            ctx.fillStyle = gradient;
             ctx.shadowBlur = 0;
+            ctx.fill();
+        }
+
+        function updateLiveChart(phaseId, points) {
+            const ctx = liveCanvas.getContext('2d');
+            const color = phaseId === 'p1' ? '#00f3ff' : '#ff0055';
+            const padding = { top: 20, right: 20, bottom: 20, left: 50 };
+            
+            let maxSpeed = Math.max(...points.map(d => d.speed), 10);
+            maxSpeed = Math.ceil(maxSpeed / 10) * 10; // Round up to nearest 10
+
+            drawChartBase(ctx, liveCanvas.width, liveCanvas.height, maxSpeed, padding);
+            drawLineWithGradient(ctx, points, liveCanvas.width, liveCanvas.height, maxSpeed, padding, color);
         }
 
         function drawFinalChart() {
             resizeCanvas(finalCanvas);
             const ctx = finalCanvas.getContext('2d');
-            ctx.clearRect(0, 0, finalCanvas.width, finalCanvas.height);
+            const padding = { top: 20, right: 20, bottom: 30, left: 50 };
             
             const p1 = testData.p1.points;
             const p2 = testData.p2.points;
             
-            const maxSpeed = Math.max(
+            let maxSpeed = Math.max(
                 ...p1.map(d => d.speed), 
                 ...p2.map(d => d.speed),
                 10
             );
+            maxSpeed = Math.ceil(maxSpeed / 10) * 10;
 
-            const drawLine = (data, color) => {
-                if (data.length === 0) return;
-                ctx.beginPath();
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 3;
-                ctx.lineJoin = 'round';
-                ctx.shadowBlur = 8;
-                ctx.shadowColor = color;
-
-                data.forEach((pt, i) => {
-                    const x = data.length > 1 ? (i / (data.length - 1)) * finalCanvas.width : finalCanvas.width/2;
-                    const y = finalCanvas.height * 0.9 - (pt.speed / maxSpeed) * (finalCanvas.height * 0.8); 
-                    if (i === 0) ctx.moveTo(x, y);
-                    else ctx.lineTo(x, y);
-                });
-                ctx.stroke();
-                ctx.shadowBlur = 0;
-            };
-
-            drawLine(p1, 'rgba(0, 243, 255, 0.8)');
-            drawLine(p2, 'rgba(255, 0, 85, 0.8)');
+            drawChartBase(ctx, finalCanvas.width, finalCanvas.height, maxSpeed, padding);
+            
+            // Draw both lines overlapping
+            drawLineWithGradient(ctx, p1, finalCanvas.width, finalCanvas.height, maxSpeed, padding, '#00f3ff');
+            drawLineWithGradient(ctx, p2, finalCanvas.width, finalCanvas.height, maxSpeed, padding, '#ff0055');
         }
 
         // --- Math & Stats ---
-        function calculateStats(points) {
-            if (points.length === 0) return { mbps: 0, mbs: 0, stability: 0 };
-            
-            const speeds = points.map(p => p.speed);
-            const mean = speeds.reduce((a, b) => a + b, 0) / speeds.length;
-            
-            let variance = speeds.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / speeds.length;
-            let stdDev = Math.sqrt(variance);
-            
-            // Coefficient of variation
-            let cv = mean > 0 ? stdDev / mean : 0;
-            let stability = 100 - (cv * 100);
-            stability = Math.max(0, Math.min(100, stability));
+        function calculateStats(points, pings) {
+            // Speed Stats
+            let mbps = 0, mbs = 0, stability = 0;
+            if (points.length > 0) {
+                const speeds = points.map(p => p.speed);
+                const mean = speeds.reduce((a, b) => a + b, 0) / speeds.length;
+                let variance = speeds.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / speeds.length;
+                let stdDev = Math.sqrt(variance);
+                let cv = mean > 0 ? stdDev / mean : 0;
+                stability = Math.max(0, Math.min(100, 100 - (cv * 100)));
+                mbps = mean;
+                mbs = mean / 8;
+            }
+
+            // Ping Stats
+            let pAvg = 0, pMin = 0, pMax = 0, jitter = 0;
+            if (pings.length > 0) {
+                pMax = Math.max(...pings);
+                pMin = Math.min(...pings);
+                pAvg = pings.reduce((a,b) => a+b, 0) / pings.length;
+                
+                let jitterSum = 0;
+                for(let i = 1; i < pings.length; i++){
+                    jitterSum += Math.abs(pings[i] - pings[i-1]);
+                }
+                jitter = pings.length > 1 ? jitterSum / (pings.length - 1) : 0;
+            }
 
             return {
-                mbps: mean.toFixed(1),
-                mbs: (mean / 8).toFixed(1),
-                stability: stability.toFixed(1)
+                mbps: mbps.toFixed(1),
+                mbs: mbs.toFixed(1),
+                stability: stability.toFixed(1),
+                pingAvg: pAvg.toFixed(0),
+                pingMin: pMin.toFixed(0),
+                pingMax: pMax.toFixed(0),
+                jitter: jitter.toFixed(1)
             };
         }
 
-        // --- Download Engine ---
-        async function runDownloadTest(url, phaseId, durationLimit = null) {
+        function showError(phaseId, err) {
+            console.error("Fetch error:", err);
+            let errMsgStr = err.message || err.toString();
+            if (errMsgStr.toLowerCase().includes('failed to fetch')) {
+                errMsgStr = "Failed to fetch. Bloqueo de red o CORS.";
+            }
+            testData[phaseId].error = errMsgStr;
+            
+            const errBox = document.getElementById('error-box');
+            const errEl = document.createElement('div');
+            errEl.style.color = 'var(--neon-magenta)';
+            errEl.style.marginTop = '1rem';
+            errEl.style.fontSize = '0.9rem';
+            errEl.style.fontWeight = 'bold';
+            errEl.style.padding = '10px';
+            errEl.style.border = '1px solid var(--neon-magenta)';
+            errEl.style.borderRadius = '5px';
+            errEl.innerText = `Error: ${errMsgStr}`;
+            errBox.appendChild(errEl);
+        }
+
+        // --- Parallel Download Engine ---
+        async function runParallelDownload(phaseId, durationLimitMs) {
             const controller = new AbortController();
             const signal = controller.signal;
             const startTime = performance.now();
             
-            let loadedBytes = 0;
+            let totalBytesLoaded = 0;
             let intervalBytes = 0;
             let lastUpdate = startTime;
+            let lastDataReceivedTime = startTime;
             
             const points = [];
-            let timerInterval;
+            const pings = [];
+            
+            const elSpeed = document.getElementById('current-speed');
+            const elBytes = document.getElementById('current-bytes');
+            const elWarning = document.getElementById('warning-nodata');
+            const elPing = document.getElementById('current-ping');
+            const elTimer = document.getElementById('phase-timer');
 
-            try {
-                // Randomize bytes slightly to avoid browser caching without triggering CORS preflight via headers
-                const cacheBuster = Math.floor(Math.random() * 10000);
-                const finalUrl = url.includes('bytes=') ? url.replace(/bytes=(\d+)/, (match, p1) => `bytes=${parseInt(p1) + cacheBuster}`) : url;
+            elWarning.style.display = 'none';
+            document.getElementById('error-box').innerHTML = ''; // clear errors
+
+            // 1. Ping Loop
+            let pingLoopActive = true;
+            const pingLoop = async () => {
+                while(pingLoopActive) {
+                    const pStart = performance.now();
+                    try {
+                        const cb = Math.floor(Math.random() * 1000000);
+                        const res = await fetch(`${PING_URL}&cb=${cb}`, { signal });
+                        if(res.ok) {
+                            const pEnd = performance.now();
+                            const latency = pEnd - pStart;
+                            pings.push(latency);
+                            elPing.innerText = `PING: ${latency.toFixed(0)} ms`;
+                        }
+                    } catch(e) {}
+                    
+                    if(!pingLoopActive) break;
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+            };
+            pingLoop();
+
+            // 2. Data Streams
+            const streams = Array.from({length: CONCURRENT_CONNECTIONS}).map(async (_, i) => {
+                try {
+                    const cacheBuster = Math.floor(Math.random() * 10000000) + i;
+                    const res = await fetch(`${TEST_URL}&cb=${cacheBuster}`, { signal });
+                    if (!res.ok) {
+                        showError(phaseId, new Error(`HTTP ${res.status}`));
+                        return;
+                    }
+                    const reader = res.body.getReader();
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        if (value) {
+                            totalBytesLoaded += value.length;
+                            intervalBytes += value.length;
+                            lastDataReceivedTime = performance.now(); // update lifeline
+                        }
+                    }
+                } catch (err) {
+                    if (err.name !== 'AbortError') showError(phaseId, err);
+                }
+            });
+
+            // 3. Monitor & UI Loop
+            const monitorInterval = setInterval(() => {
+                const now = performance.now();
+                const elapsTotal = now - startTime;
                 
-                const res = await fetch(finalUrl, { signal });
-                if (!res.ok) throw new Error(`HTTP Error: ${res.status} ${res.statusText}`);
+                elTimer.innerText = (elapsTotal / 1000).toFixed(1) + 's';
+                elBytes.innerText = (totalBytesLoaded / (1024*1024)).toFixed(2) + ' MB totales descargados';
 
-                const reader = res.body.getReader();
+                const timeSinceLastData = now - lastDataReceivedTime;
 
-                // Timer UI update
-                timerInterval = setInterval(() => {
-                    const elaps = (performance.now() - startTime) / 1000;
-                    document.getElementById('phase-timer').innerText = elaps.toFixed(1) + 's';
-                }, 100);
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    const now = performance.now();
-                    const elapsTotal = now - startTime;
-                    
-                    if (value) {
-                        loadedBytes += value.length;
-                        intervalBytes += value.length;
-                    }
-
-                    // Update metrics every ~250ms
-                    if (now - lastUpdate >= 250) {
-                        // bits per second
-                        const bps = (intervalBytes * 8) / ((now - lastUpdate) / 1000);
-                        const mbps = bps / 1000000;
-                        
-                        // Save point
-                        points.push({ time: elapsTotal, speed: mbps });
-                        
-                        // Update UI
-                        document.getElementById('current-speed').innerText = mbps.toFixed(1);
-                        
-                        const color = phaseId === 'p1' ? 'var(--neon-cyan)' : 'var(--neon-magenta)';
-                        document.getElementById('current-speed').style.color = color;
-                        drawLineChart(liveCanvas, points, phaseId === 'p1' ? '#00f3ff' : '#ff0055');
-
-                        // Reset interval counters
-                        intervalBytes = 0;
-                        lastUpdate = now;
-                    }
-
-                    // Enforce duration limit (Phase 1)
-                    if (durationLimit && elapsTotal >= durationLimit) {
-                        controller.abort();
-                        break;
-                    }
-                }
-            } catch (err) {
-                if (err.name === 'AbortError') {
-                    // Normal limit reached
-                    console.log("Test de duración completado");
+                if (timeSinceLastData >= 2000) {
+                    // ZERO DATA WARNING
+                    elWarning.style.display = 'block';
+                    elSpeed.innerText = "0.0";
+                    points.push({ time: elapsTotal, speed: 0 });
                 } else {
-                    console.error("Fetch error:", err);
-                    let errMsgStr = err.message || err.toString();
-                    if (errMsgStr.toLowerCase().includes('failed to fetch')) {
-                        errMsgStr = "Failed to fetch. Esto suele ocurrir por un bloqueo de red, CORS o porque el archivo solicitado es demasiado grande para el servidor.";
-                    }
-                    testData[phaseId].error = errMsgStr;
+                    elWarning.style.display = 'none';
+                    // Calc Aggregated Speed
+                    const bps = (intervalBytes * 8) / ((now - lastUpdate) / 1000);
+                    const mbps = bps / 1000000;
+                    elSpeed.innerText = mbps.toFixed(1);
                     
-                    // Show error on UI
-                    const errMsg = document.createElement('div');
-                    errMsg.style.color = 'var(--neon-magenta)';
-                    errMsg.style.marginTop = '1rem';
-                    errMsg.style.fontSize = '0.9rem';
-                    errMsg.style.fontWeight = 'bold';
-                    errMsg.style.padding = '10px';
-                    errMsg.style.border = '1px solid var(--neon-magenta)';
-                    errMsg.style.borderRadius = '5px';
-                    errMsg.innerText = `Error Real: ${testData[phaseId].error}`;
-                    document.querySelector('.speed-display').appendChild(errMsg);
+                    points.push({ time: elapsTotal, speed: mbps });
                 }
-            } finally {
-                clearInterval(timerInterval);
-            }
 
-            const totalTime = (performance.now() - startTime) / 1000;
+                const color = phaseId === 'p1' ? 'var(--neon-cyan)' : 'var(--neon-magenta)';
+                elSpeed.style.color = timeSinceLastData >= 2000 ? 'var(--text-muted)' : color;
+                
+                updateLiveChart(phaseId, points);
+
+                intervalBytes = 0;
+                lastUpdate = now;
+
+                if (elapsTotal >= durationLimitMs) {
+                    controller.abort();
+                    pingLoopActive = false;
+                }
+            }, 250);
+
+            // Wait for duration to hit and streams to abort
+            await Promise.allSettled(streams);
+            clearInterval(monitorInterval);
+            pingLoopActive = false;
+            
             testData[phaseId].points = points;
-            testData[phaseId].duration = totalTime;
+            testData[phaseId].pings = pings;
+            testData[phaseId].totalBytes = totalBytesLoaded;
         }
 
         // --- Main Flow ---
@@ -674,9 +826,8 @@
             document.getElementById('btn-start').disabled = true;
             document.getElementById('global-error').style.display = 'none';
 
-            // Verify support
             if (!window.fetch || !window.ReadableStream) {
-                document.getElementById('global-error').innerText = "Tu navegador no soporta las APIs necesarias para este test.";
+                document.getElementById('global-error').innerText = "Navegador no soportado.";
                 document.getElementById('global-error').style.display = 'block';
                 return;
             }
@@ -685,30 +836,28 @@
             resizeCanvas(liveCanvas);
 
             // FASE 1
-            document.getElementById('phase-title').innerText = "FASE 1: Simulación Gaming";
-            document.getElementById('phase-title').className = "phase-title pulse";
+            const pTitle = document.getElementById('phase-title');
+            pTitle.className = "phase-title pulse";
+            pTitle.innerHTML = `<div class="phase-indicator"></div> FASE 1: Carga Gaming (Multihilo)`;
+            document.getElementById('current-ping').style.color = 'var(--neon-cyan)';
             
-            await runDownloadTest(TEST_URLS.p1, 'p1', 15000); // 15 seconds limit
-
-            if (testData.p1.error) {
-                alert(`Error en Fase 1: ${testData.p1.error}\nSe intentará continuar con la Fase 2.`);
-            }
+            await runParallelDownload('p1', PHASE_DURATION_MS);
 
             // FASE 2
-            document.getElementById('phase-title').innerText = "FASE 2: Descarga Pesada";
-            document.getElementById('phase-title').className = "phase-title p2 pulse";
+            pTitle.className = "phase-title p2 pulse";
+            pTitle.innerHTML = `<div class="phase-indicator"></div> FASE 2: Descarga Pesada (Multihilo)`;
+            document.getElementById('current-ping').style.color = 'var(--neon-magenta)';
             
-            // Small pause between phases
+            // Brief pause to reset UI visually
             document.getElementById('current-speed').innerText = "0.0";
+            document.getElementById('current-bytes').innerText = "0.00 MB totales descargados";
             document.getElementById('phase-timer').innerText = "0.0s";
-            drawLineChart(liveCanvas, [], '#ff0055');
-            await new Promise(r => setTimeout(r, 1000));
+            document.getElementById('current-ping').innerText = "PING: -- ms";
+            const ctx = liveCanvas.getContext('2d');
+            ctx.clearRect(0,0, liveCanvas.width, liveCanvas.height);
+            await new Promise(r => setTimeout(r, 2000));
 
-            await runDownloadTest(TEST_URLS.p2, 'p2', null); // no limit, download 50MB fully
-
-            if (testData.p2.error) {
-                alert(`Error en Fase 2: ${testData.p2.error}\nEs posible que los resultados sean inexactos.`);
-            }
+            await runParallelDownload('p2', PHASE_DURATION_MS);
 
             showResults();
         }
@@ -716,21 +865,21 @@
         function showResults() {
             setView('view-results');
             
-            const stats1 = calculateStats(testData.p1.points);
-            const stats2 = calculateStats(testData.p2.points);
+            const stats1 = calculateStats(testData.p1.points, testData.p1.pings);
+            const stats2 = calculateStats(testData.p2.points, testData.p2.pings);
 
-            // Populate DOM
-            const populate = (phase, stats, time) => {
+            const populate = (phase, stats, totalBytes) => {
                 document.getElementById(`res-${phase}-mbps`).innerText = stats.mbps + ' Mbps';
                 document.getElementById(`res-${phase}-mbs`).innerText = stats.mbs + ' MB/s';
+                document.getElementById(`res-${phase}-total`).innerText = (totalBytes / (1024*1024)).toFixed(2) + ' MB';
                 document.getElementById(`res-${phase}-stab`).innerText = stats.stability + '%';
-                document.getElementById(`res-${phase}-time`).innerText = time.toFixed(1) + ' s';
+                document.getElementById(`res-${phase}-ping`).innerText = `${stats.pingAvg} / ${stats.pingMin} / ${stats.pingMax} ms`;
+                document.getElementById(`res-${phase}-jitter`).innerText = stats.jitter + ' ms';
             };
 
-            populate('p1', stats1, testData.p1.duration);
-            populate('p2', stats2, testData.p2.duration);
+            populate('p1', stats1, testData.p1.totalBytes);
+            populate('p2', stats2, testData.p2.totalBytes);
 
-            // Draw final chart
             setTimeout(drawFinalChart, 100);
             window.addEventListener('resize', drawFinalChart);
         }
