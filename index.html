@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Velocidad Real</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Orbitron:wght@500;700;900&display=swap');
+
+        :root {
+            --bg-base: #050505;
+            --bg-panel: #121214;
+            --border-dim: #27272a;
+            --text-main: #f4f4f5;
+            --text-muted: #a1a1aa;
+            
+            --neon-cyan: #00f3ff;
+            --neon-magenta: #ff0055;
+            --neon-green: #39ff14;
+            
+            --font-ui: 'Inter', system-ui, sans-serif;
+            --font-display: 'Orbitron', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            font-family: var(--font-ui);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+            background-image: 
+                radial-gradient(circle at 15% 20%, rgba(0, 243, 255, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 85% 80%, rgba(255, 0, 85, 0.05) 0%, transparent 40%);
+            background-attachment: fixed;
+            overflow-x: hidden;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            animation: fadeIn 1s ease-out;
+        }
+
+        h1 {
+            font-family: var(--font-display);
+            font-size: 3rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            background: linear-gradient(90deg, var(--neon-cyan), var(--neon-magenta));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1rem;
+            text-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+        }
+
+        .context-info {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 1.5rem;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .context-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            border: 1px solid var(--border-dim);
+        }
+
+        .context-item span {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .dashboard {
+            width: 100%;
+            max-width: 900px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-dim);
+            border-radius: 16px;
+            padding: 2.5rem;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .dashboard::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--neon-cyan), var(--neon-magenta));
+            border-radius: 16px 16px 0 0;
+        }
+
+        .view {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .view.active {
+            display: block;
+        }
+
+        /* Idle View */
+        #view-idle {
+            text-align: center;
+            padding: 2rem 0;
+        }
+
+        #view-idle p {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            margin-bottom: 3rem;
+            line-height: 1.6;
+        }
+
+        .btn {
+            background: transparent;
+            color: var(--text-main);
+            font-family: var(--font-display);
+            font-size: 1.2rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            padding: 1.2rem 3rem;
+            border: 2px solid var(--neon-cyan);
+            border-radius: 8px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 243, 255, 0.2), transparent);
+            transition: all 0.5s ease;
+        }
+
+        .btn:hover {
+            background: rgba(0, 243, 255, 0.1);
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        /* Testing View */
+        .test-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .phase-title {
+            font-family: var(--font-display);
+            color: var(--neon-cyan);
+            font-size: 1.5rem;
+        }
+
+        .phase-title.p2 {
+            color: var(--neon-magenta);
+        }
+
+        .speed-display {
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        .speed-value {
+            font-family: var(--font-display);
+            font-size: 5rem;
+            font-weight: 900;
+            line-height: 1;
+            text-shadow: 0 0 30px rgba(255,255,255,0.1);
+            transition: color 0.3s;
+        }
+
+        .speed-unit {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 250px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border-dim);
+            border-radius: 8px;
+            position: relative;
+            padding: 10px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Results View */
+        #view-results h2 {
+            font-family: var(--font-display);
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .results-grid { grid-template-columns: 1fr; }
+        }
+
+        .result-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border-dim);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .result-card h3 {
+            font-family: var(--font-display);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .result-card.gaming h3 { color: var(--neon-cyan); }
+        .result-card.download h3 { color: var(--neon-magenta); }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            border-bottom: 1px dashed rgba(255,255,255,0.1);
+            padding-bottom: 0.5rem;
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+        }
+
+        .stat-val {
+            font-weight: 600;
+            font-family: var(--font-display);
+        }
+
+        .error-msg {
+            color: var(--neon-magenta);
+            text-align: center;
+            margin-top: 1rem;
+            font-weight: 600;
+            display: none;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Test de Velocidad</h1>
+        <div class="context-info" id="context-info">
+            <div class="context-item">📍 Ubicación: <span id="ctx-loc">Detectando...</span></div>
+            <div class="context-item">🌐 ISP: <span id="ctx-isp">Detectando...</span></div>
+            <div class="context-item">💻 Sistema: <span id="ctx-sys">Cargando...</span></div>
+        </div>
+    </header>
+
+    <main class="dashboard">
+        
+        <!-- Idle State -->
+        <div id="view-idle" class="view active">
+            <p>Este test mide tu conexión real en dos escenarios:<br>
+            <strong>1. Simulación Gaming:</strong> Tráfico constante durante 15s para medir estabilidad.<br>
+            <strong>2. Descarga Pesada:</strong> Descarga de un archivo de 50MB para medir capacidad bruta.</p>
+            <button class="btn" id="btn-start" onclick="startTest()">Iniciar Análisis</button>
+            <div id="global-error" class="error-msg"></div>
+        </div>
+
+        <!-- Testing State -->
+        <div id="view-testing" class="view">
+            <div class="test-header">
+                <div class="phase-title pulse" id="phase-title">FASE 1: Carga Gaming</div>
+                <div style="color: var(--text-muted);" id="phase-timer">00:00</div>
+            </div>
+            
+            <div class="speed-display">
+                <div class="speed-value" id="current-speed">0.0</div>
+                <div class="speed-unit">Mbps</div>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="live-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Results State -->
+        <div id="view-results" class="view">
+            <h2>Reporte de Rendimiento</h2>
+            
+            <div class="results-grid">
+                <div class="result-card gaming">
+                    <h3>■ Fase 1: Gaming</h3>
+                    <div class="stat-row">
+                        <span class="stat-label">Velocidad Promedio</span>
+                        <span class="stat-val" id="res-p1-mbps">-- Mbps</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Tasa de Transferencia</span>
+                        <span class="stat-val" id="res-p1-mbs">-- MB/s</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Estabilidad</span>
+                        <span class="stat-val" id="res-p1-stab">--%</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Duración</span>
+                        <span class="stat-val" id="res-p1-time">-- s</span>
+                    </div>
+                </div>
+
+                <div class="result-card download">
+                    <h3>■ Fase 2: Descarga</h3>
+                    <div class="stat-row">
+                        <span class="stat-label">Velocidad Promedio</span>
+                        <span class="stat-val" id="res-p2-mbps">-- Mbps</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Tasa de Transferencia</span>
+                        <span class="stat-val" id="res-p2-mbs">-- MB/s</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Estabilidad</span>
+                        <span class="stat-val" id="res-p2-stab">--%</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Duración</span>
+                        <span class="stat-val" id="res-p2-time">-- s</span>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 1rem; color: var(--text-muted); font-size: 0.9rem; text-align: center;">
+                Comparativa de Curvas (Azul: Gaming | Rosa: Descarga)
+            </div>
+            <div class="chart-container">
+                <canvas id="final-chart"></canvas>
+            </div>
+
+            <div style="text-align: center; margin-top: 3rem;">
+                <button class="btn" onclick="location.reload()">Repetir Test</button>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- Context Detection ---
+        async function loadContext() {
+            // OS / Browser
+            const ua = navigator.userAgent;
+            let os = "Desconocido";
+            if (ua.includes("Win")) os = "Windows";
+            else if (ua.includes("Mac")) os = "MacOS";
+            else if (ua.includes("Linux")) os = "Linux";
+            else if (ua.includes("Android")) os = "Android";
+            else if (ua.includes("like Mac")) os = "iOS";
+            
+            let browser = "Desconocido";
+            if (ua.includes("Chrome")) browser = "Chrome";
+            else if (ua.includes("Firefox")) browser = "Firefox";
+            else if (ua.includes("Safari") && !ua.includes("Chrome")) browser = "Safari";
+            else if (ua.includes("Edge")) browser = "Edge";
+            
+            document.getElementById('ctx-sys').innerText = `${os} / ${browser}`;
+
+            // IP Data
+            try {
+                const res = await fetch('https://ipapi.co/json/');
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('ctx-loc').innerText = `${data.city || '?'}, ${data.country_name || '?'}`;
+                    document.getElementById('ctx-isp').innerText = data.org || 'Desconocido';
+                } else {
+                    throw new Error("API Limit");
+                }
+            } catch (e) {
+                // Fallback
+                document.getElementById('ctx-loc').innerText = 'No detectado';
+                document.getElementById('ctx-isp').innerText = 'No detectado';
+            }
+        }
+        
+        loadContext();
+
+        // --- Core Variables ---
+        const TEST_URLS = {
+            // Cloudflare endpoints to fetch varying amounts of data.
+            // 25MB for Phase 1 (gaming simulation)
+            p1: 'https://speed.cloudflare.com/__down?bytes=25000000',
+            // 50MB for Phase 2 (heavy download)
+            p2: 'https://speed.cloudflare.com/__down?bytes=50000000'
+        };
+
+        let currentPhase = 0;
+        let testData = {
+            p1: { points: [], duration: 0, error: false },
+            p2: { points: [], duration: 0, error: false }
+        };
+
+        const liveCanvas = document.getElementById('live-chart');
+        const finalCanvas = document.getElementById('final-chart');
+
+        function setView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+        }
+
+        // --- Drawing Logic ---
+        function resizeCanvas(canvas) {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+        }
+
+        function drawLineChart(canvas, dataPoints, color) {
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+            
+            ctx.clearRect(0, 0, w, h);
+            if (!dataPoints || dataPoints.length === 0) return;
+
+            const maxSpeed = Math.max(...dataPoints.map(d => d.speed), 10);
+            
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.lineJoin = 'round';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = color;
+
+            dataPoints.forEach((pt, i) => {
+                const x = dataPoints.length > 1 ? (i / (dataPoints.length - 1)) * w : w/2;
+                // Leave 10% padding on top, 10% on bottom
+                const y = h * 0.9 - (pt.speed / maxSpeed) * (h * 0.8); 
+                
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
+        function drawFinalChart() {
+            resizeCanvas(finalCanvas);
+            const ctx = finalCanvas.getContext('2d');
+            ctx.clearRect(0, 0, finalCanvas.width, finalCanvas.height);
+            
+            const p1 = testData.p1.points;
+            const p2 = testData.p2.points;
+            
+            const maxSpeed = Math.max(
+                ...p1.map(d => d.speed), 
+                ...p2.map(d => d.speed),
+                10
+            );
+
+            const drawLine = (data, color) => {
+                if (data.length === 0) return;
+                ctx.beginPath();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                ctx.lineJoin = 'round';
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = color;
+
+                data.forEach((pt, i) => {
+                    const x = data.length > 1 ? (i / (data.length - 1)) * finalCanvas.width : finalCanvas.width/2;
+                    const y = finalCanvas.height * 0.9 - (pt.speed / maxSpeed) * (finalCanvas.height * 0.8); 
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            };
+
+            drawLine(p1, 'rgba(0, 243, 255, 0.8)');
+            drawLine(p2, 'rgba(255, 0, 85, 0.8)');
+        }
+
+        // --- Math & Stats ---
+        function calculateStats(points) {
+            if (points.length === 0) return { mbps: 0, mbs: 0, stability: 0 };
+            
+            const speeds = points.map(p => p.speed);
+            const mean = speeds.reduce((a, b) => a + b, 0) / speeds.length;
+            
+            let variance = speeds.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / speeds.length;
+            let stdDev = Math.sqrt(variance);
+            
+            // Coefficient of variation
+            let cv = mean > 0 ? stdDev / mean : 0;
+            let stability = 100 - (cv * 100);
+            stability = Math.max(0, Math.min(100, stability));
+
+            return {
+                mbps: mean.toFixed(1),
+                mbs: (mean / 8).toFixed(1),
+                stability: stability.toFixed(1)
+            };
+        }
+
+        // --- Download Engine ---
+        async function runDownloadTest(url, phaseId, durationLimit = null) {
+            const controller = new AbortController();
+            const signal = controller.signal;
+            const startTime = performance.now();
+            
+            let loadedBytes = 0;
+            let intervalBytes = 0;
+            let lastUpdate = startTime;
+            
+            const points = [];
+            let timerInterval;
+
+            try {
+                // Randomize bytes slightly to avoid browser caching without triggering CORS preflight via headers
+                const cacheBuster = Math.floor(Math.random() * 10000);
+                const finalUrl = url.includes('bytes=') ? url.replace(/bytes=(\d+)/, (match, p1) => `bytes=${parseInt(p1) + cacheBuster}`) : url;
+                
+                const res = await fetch(finalUrl, { signal });
+                if (!res.ok) throw new Error(`HTTP Error: ${res.status} ${res.statusText}`);
+
+                const reader = res.body.getReader();
+
+                // Timer UI update
+                timerInterval = setInterval(() => {
+                    const elaps = (performance.now() - startTime) / 1000;
+                    document.getElementById('phase-timer').innerText = elaps.toFixed(1) + 's';
+                }, 100);
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const now = performance.now();
+                    const elapsTotal = now - startTime;
+                    
+                    if (value) {
+                        loadedBytes += value.length;
+                        intervalBytes += value.length;
+                    }
+
+                    // Update metrics every ~250ms
+                    if (now - lastUpdate >= 250) {
+                        // bits per second
+                        const bps = (intervalBytes * 8) / ((now - lastUpdate) / 1000);
+                        const mbps = bps / 1000000;
+                        
+                        // Save point
+                        points.push({ time: elapsTotal, speed: mbps });
+                        
+                        // Update UI
+                        document.getElementById('current-speed').innerText = mbps.toFixed(1);
+                        
+                        const color = phaseId === 'p1' ? 'var(--neon-cyan)' : 'var(--neon-magenta)';
+                        document.getElementById('current-speed').style.color = color;
+                        drawLineChart(liveCanvas, points, phaseId === 'p1' ? '#00f3ff' : '#ff0055');
+
+                        // Reset interval counters
+                        intervalBytes = 0;
+                        lastUpdate = now;
+                    }
+
+                    // Enforce duration limit (Phase 1)
+                    if (durationLimit && elapsTotal >= durationLimit) {
+                        controller.abort();
+                        break;
+                    }
+                }
+            } catch (err) {
+                if (err.name === 'AbortError') {
+                    // Normal limit reached
+                    console.log("Test de duración completado");
+                } else {
+                    console.error("Fetch error:", err);
+                    let errMsgStr = err.message || err.toString();
+                    if (errMsgStr.toLowerCase().includes('failed to fetch')) {
+                        errMsgStr = "Failed to fetch. Esto suele ocurrir por un bloqueo de red, CORS o porque el archivo solicitado es demasiado grande para el servidor.";
+                    }
+                    testData[phaseId].error = errMsgStr;
+                    
+                    // Show error on UI
+                    const errMsg = document.createElement('div');
+                    errMsg.style.color = 'var(--neon-magenta)';
+                    errMsg.style.marginTop = '1rem';
+                    errMsg.style.fontSize = '0.9rem';
+                    errMsg.style.fontWeight = 'bold';
+                    errMsg.style.padding = '10px';
+                    errMsg.style.border = '1px solid var(--neon-magenta)';
+                    errMsg.style.borderRadius = '5px';
+                    errMsg.innerText = `Error Real: ${testData[phaseId].error}`;
+                    document.querySelector('.speed-display').appendChild(errMsg);
+                }
+            } finally {
+                clearInterval(timerInterval);
+            }
+
+            const totalTime = (performance.now() - startTime) / 1000;
+            testData[phaseId].points = points;
+            testData[phaseId].duration = totalTime;
+        }
+
+        // --- Main Flow ---
+        async function startTest() {
+            document.getElementById('btn-start').disabled = true;
+            document.getElementById('global-error').style.display = 'none';
+
+            // Verify support
+            if (!window.fetch || !window.ReadableStream) {
+                document.getElementById('global-error').innerText = "Tu navegador no soporta las APIs necesarias para este test.";
+                document.getElementById('global-error').style.display = 'block';
+                return;
+            }
+
+            setView('view-testing');
+            resizeCanvas(liveCanvas);
+
+            // FASE 1
+            document.getElementById('phase-title').innerText = "FASE 1: Simulación Gaming";
+            document.getElementById('phase-title').className = "phase-title pulse";
+            
+            await runDownloadTest(TEST_URLS.p1, 'p1', 15000); // 15 seconds limit
+
+            if (testData.p1.error) {
+                alert(`Error en Fase 1: ${testData.p1.error}\nSe intentará continuar con la Fase 2.`);
+            }
+
+            // FASE 2
+            document.getElementById('phase-title').innerText = "FASE 2: Descarga Pesada";
+            document.getElementById('phase-title').className = "phase-title p2 pulse";
+            
+            // Small pause between phases
+            document.getElementById('current-speed').innerText = "0.0";
+            document.getElementById('phase-timer').innerText = "0.0s";
+            drawLineChart(liveCanvas, [], '#ff0055');
+            await new Promise(r => setTimeout(r, 1000));
+
+            await runDownloadTest(TEST_URLS.p2, 'p2', null); // no limit, download 50MB fully
+
+            if (testData.p2.error) {
+                alert(`Error en Fase 2: ${testData.p2.error}\nEs posible que los resultados sean inexactos.`);
+            }
+
+            showResults();
+        }
+
+        function showResults() {
+            setView('view-results');
+            
+            const stats1 = calculateStats(testData.p1.points);
+            const stats2 = calculateStats(testData.p2.points);
+
+            // Populate DOM
+            const populate = (phase, stats, time) => {
+                document.getElementById(`res-${phase}-mbps`).innerText = stats.mbps + ' Mbps';
+                document.getElementById(`res-${phase}-mbs`).innerText = stats.mbs + ' MB/s';
+                document.getElementById(`res-${phase}-stab`).innerText = stats.stability + '%';
+                document.getElementById(`res-${phase}-time`).innerText = time.toFixed(1) + ' s';
+            };
+
+            populate('p1', stats1, testData.p1.duration);
+            populate('p2', stats2, testData.p2.duration);
+
+            // Draw final chart
+            setTimeout(drawFinalChart, 100);
+            window.addEventListener('resize', drawFinalChart);
+        }
+
+    </script>
+</body>
+</html>
