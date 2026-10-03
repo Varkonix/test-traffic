@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#050505">
     <title>Test de Velocidad Real</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Orbitron:wght@500;700;900&display=swap');
@@ -361,14 +363,135 @@
             100% { transform: scale(1); }
         }
 
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        .nav-tab {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border-dim);
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            font-family: var(--font-display);
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .nav-tab.active {
+            color: var(--neon-cyan);
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+        }
+        .nav-tab:hover:not(.active) {
+            color: var(--text-main);
+            border-color: var(--text-main);
+        }
+
+        /* History Table */
+        .history-section {
+            margin-top: 2rem;
+            overflow-x: auto;
+        }
+        .provider-title {
+            color: var(--neon-cyan);
+            margin-bottom: 1rem;
+            font-family: var(--font-display);
+            border-bottom: 1px solid var(--border-dim);
+            padding-bottom: 0.5rem;
+        }
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+            min-width: 600px;
+        }
+        .history-table th, .history-table td {
+            padding: 0.8rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-dim);
+        }
+        .history-table th {
+            color: var(--text-muted);
+            font-family: var(--font-display);
+        }
+        .history-table tbody tr:hover {
+            background: rgba(255,255,255,0.02);
+        }
+
+        /* Stress Test */
+        #view-stress h2 {
+            font-family: var(--font-display);
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 2rem;
+        }
+        .stress-status {
+            text-align: center;
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            color: var(--neon-magenta);
+            font-family: var(--font-display);
+            height: 2rem;
+        }
+        .quality-bars {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+        .quality-bar {
+            flex: 1;
+            min-width: 100px;
+            background: var(--bg-base);
+            border: 1px solid var(--border-dim);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            transition: all 0.3s;
+            opacity: 0.5;
+        }
+        .quality-bar.active {
+            opacity: 1;
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+            transform: scale(1.05);
+        }
+        .quality-bar.success {
+            opacity: 1;
+            border-color: var(--neon-green);
+            color: var(--neon-green);
+            box-shadow: 0 0 15px rgba(57, 255, 20, 0.2);
+        }
+        .quality-bar.fail {
+            opacity: 1;
+            border-color: var(--neon-magenta);
+            color: var(--neon-magenta);
+            box-shadow: 0 0 15px rgba(255, 0, 85, 0.2);
+        }
+        .q-name { font-weight: bold; font-family: var(--font-display); margin-bottom: 0.5rem; }
+        .q-req { font-size: 0.8rem; color: var(--text-muted); }
+
     </style>
 </head>
 <body>
 
     <header>
         <h1>Test de Velocidad</h1>
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="switchMainTab('test')" id="tab-test">Test Normal</button>
+            <button class="nav-tab" onclick="switchMainTab('stress')" id="tab-stress">Estrés Máximo</button>
+            <button class="nav-tab" onclick="switchMainTab('history')" id="tab-history">Historial</button>
+        </div>
         <div class="context-info" id="context-info">
             <div class="context-item">📍 Ubicación: <span id="ctx-loc">Detectando...</span></div>
+            <div class="context-item">📡 IP: <span id="ctx-ip">Detectando...</span></div>
             <div class="context-item">🌐 ISP: <span id="ctx-isp">Detectando...</span></div>
             <div class="context-item">💻 Sistema: <span id="ctx-sys">Cargando...</span></div>
         </div>
@@ -497,9 +620,91 @@
             </div>
         </div>
 
+        <!-- Stress Test View -->
+        <div id="view-stress" class="view">
+            <h2>Prueba de Estrés Máximo (Video Streaming)</h2>
+            <p style="text-align:center; color:var(--text-muted); margin-bottom:2rem;">
+                Simula reproducción de video en calidades ascendentes hasta encontrar el límite real de tu conexión, sin cortes.
+            </p>
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <button class="btn" id="btn-start-stress" onclick="startStressTest()">Iniciar Prueba de Estrés</button>
+            </div>
+            <div class="stress-status" id="stress-status"></div>
+            <div class="quality-bars">
+                <div class="quality-bar" id="q-720">
+                    <div class="q-name">720p HD</div>
+                    <div class="q-req">Req: ~5 Mbps</div>
+                </div>
+                <div class="quality-bar" id="q-1080">
+                    <div class="q-name">1080p FHD</div>
+                    <div class="q-req">Req: ~15 Mbps</div>
+                </div>
+                <div class="quality-bar" id="q-1440">
+                    <div class="q-name">1440p 2K</div>
+                    <div class="q-req">Req: ~30 Mbps</div>
+                </div>
+                <div class="quality-bar" id="q-2160">
+                    <div class="q-name">2160p 4K</div>
+                    <div class="q-req">Req: ~50 Mbps</div>
+                </div>
+            </div>
+            
+            <div id="stress-results" class="result-card" style="display:none; text-align:center; max-width:600px; margin:0 auto;">
+                <h3 style="justify-content:center; font-size:1.5rem; margin-bottom:1.5rem;">Resultado: <span id="stress-res-q"></span></h3>
+                <div class="stat-row">
+                    <span class="stat-label">Velocidad Sostenida:</span>
+                    <span class="stat-val" id="stress-res-speed"></span>
+                </div>
+                <div class="stat-row" style="margin-top:1rem; padding-top:1rem; border-top:1px dashed rgba(255,255,255,0.1);">
+                    <span class="stat-label">Capacidad Estimada:</span>
+                    <span class="stat-val" id="stress-res-devices" style="color:var(--neon-cyan); font-size:1.2rem;"></span>
+                </div>
+                <div style="color:var(--text-muted); font-size:0.85rem; margin-top:1rem;">
+                    (Basado en streaming simultáneo a la calidad máxima alcanzada)
+                </div>
+            </div>
+        </div>
+
+        <!-- History View -->
+        <div id="view-history" class="view">
+            <h2 style="font-family: var(--font-display); text-align: center; font-size: 2rem; margin-bottom: 2rem;">Historial de Pruebas</h2>
+            <div id="history-container"></div>
+        </div>
+
     </main>
 
     <script>
+        // Service worker registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(err => {
+                    console.log('SW Registration failed: ', err);
+                });
+            });
+        }
+
+        // Tab logic
+        function switchMainTab(tab) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+            
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            
+            if (tab === 'test') {
+                if(document.getElementById('res-p1-mbps') && document.getElementById('res-p1-mbps').innerText !== '-- Mbps' && document.getElementById('btn-start').disabled) {
+                    document.getElementById('view-results').classList.add('active');
+                    drawFinalChart();
+                } else {
+                    document.getElementById('view-idle').classList.add('active');
+                }
+            } else if (tab === 'stress') {
+                document.getElementById('view-stress').classList.add('active');
+            } else if (tab === 'history') {
+                document.getElementById('view-history').classList.add('active');
+                renderHistory();
+            }
+        }
+
         // --- Context Detection ---
         async function loadContext() {
             const ua = navigator.userAgent;
@@ -523,10 +728,12 @@
                     const data = await res.json();
                     document.getElementById('ctx-loc').innerText = `${data.city || '?'}, ${data.country_name || '?'}`;
                     document.getElementById('ctx-isp').innerText = data.org || 'Desconocido';
+                    document.getElementById('ctx-ip').innerText = data.ip || 'Desconocido';
                 }
             } catch (e) {
                 document.getElementById('ctx-loc').innerText = 'No detectado';
                 document.getElementById('ctx-isp').innerText = 'No detectado';
+                document.getElementById('ctx-ip').innerText = 'No detectado';
             }
         }
         
@@ -925,6 +1132,167 @@
 
             setTimeout(drawFinalChart, 100);
             window.addEventListener('resize', drawFinalChart);
+
+            // Save to history
+            const provider = document.getElementById('ctx-isp').innerText;
+            const now = new Date();
+            const historyEntry = {
+                date: now.toLocaleDateString() + ' ' + now.toLocaleTimeString(),
+                p1_mbps: stats1.mbps,
+                p1_ping: stats1.pingAvg,
+                p1_stab: stats1.stability,
+                p2_mbps: stats2.mbps,
+                p2_ping: stats2.pingAvg,
+                p2_stab: stats2.stability
+            };
+            
+            let history = JSON.parse(localStorage.getItem('speedtest_history')) || {};
+            if(!history[provider]) history[provider] = [];
+            history[provider].unshift(historyEntry);
+            if(history[provider].length > 10) history[provider].pop();
+            localStorage.setItem('speedtest_history', JSON.stringify(history));
+        }
+
+        // --- History Logic ---
+        function renderHistory() {
+            const container = document.getElementById('history-container');
+            container.innerHTML = '';
+            const history = JSON.parse(localStorage.getItem('speedtest_history')) || {};
+            
+            const providers = Object.keys(history);
+            if(providers.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:var(--text-muted);">No hay pruebas en el historial.</p>';
+                return;
+            }
+            
+            providers.forEach(prov => {
+                const tests = history[prov];
+                const section = document.createElement('div');
+                section.className = 'history-section';
+                
+                const title = document.createElement('h3');
+                title.className = 'provider-title';
+                title.innerText = `Proveedor: ${prov}`;
+                section.appendChild(title);
+                
+                const table = document.createElement('table');
+                table.className = 'history-table';
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Gaming: Mbps</th>
+                            <th>Gaming: Ping/Est.</th>
+                            <th>Descarga: Mbps</th>
+                            <th>Descarga: Ping/Est.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tests.map(t => `
+                            <tr>
+                                <td>${t.date}</td>
+                                <td><span style="color:var(--neon-cyan)">${t.p1_mbps}</span></td>
+                                <td>${t.p1_ping}ms / ${t.p1_stab}%</td>
+                                <td><span style="color:var(--neon-magenta)">${t.p2_mbps}</span></td>
+                                <td>${t.p2_ping}ms / ${t.p2_stab}%</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                `;
+                section.appendChild(table);
+                container.appendChild(section);
+            });
+        }
+
+        // --- Stress Test Logic ---
+        async function startStressTest() {
+            const btn = document.getElementById('btn-start-stress');
+            btn.disabled = true;
+            const status = document.getElementById('stress-status');
+            const resBox = document.getElementById('stress-results');
+            resBox.style.display = 'none';
+            
+            const qualities = [
+                { id: 'q-720', name: '720p HD', req: 5 },
+                { id: 'q-1080', name: '1080p FHD', req: 15 },
+                { id: 'q-1440', name: '1440p 2K', req: 30 },
+                { id: 'q-2160', name: '2160p 4K', req: 50 }
+            ];
+            
+            qualities.forEach(q => document.getElementById(q.id).className = 'quality-bar');
+            
+            let maxQuality = null;
+            let maxSpeed = 0;
+            
+            for (let i = 0; i < qualities.length; i++) {
+                const q = qualities[i];
+                status.innerText = `Probando calidad ${q.name}...`;
+                const el = document.getElementById(q.id);
+                el.classList.add('active');
+                
+                const testDuration = 5000; 
+                const speedMbps = await measureSingleConnectionSpeed(testDuration);
+                
+                if (speedMbps >= q.req) {
+                    el.classList.remove('active');
+                    el.classList.add('success');
+                    maxQuality = q;
+                    maxSpeed = speedMbps;
+                    await new Promise(r => setTimeout(r, 1000));
+                } else {
+                    el.classList.remove('active');
+                    el.classList.add('fail');
+                    maxSpeed = speedMbps;
+                    break;
+                }
+            }
+            
+            status.innerText = "Prueba completada.";
+            btn.disabled = false;
+            
+            resBox.style.display = 'block';
+            if(maxQuality) {
+                document.getElementById('stress-res-q').innerText = maxQuality.name;
+                document.getElementById('stress-res-q').style.color = 'var(--neon-green)';
+                document.getElementById('stress-res-speed').innerText = maxSpeed.toFixed(1) + ' Mbps';
+                const devices = Math.floor(maxSpeed / maxQuality.req);
+                document.getElementById('stress-res-devices').innerText = `${devices} dispositivo(s) simultáneo(s) a ${maxQuality.name}`;
+            } else {
+                document.getElementById('stress-res-q').innerText = "Insuficiente para 720p";
+                document.getElementById('stress-res-q').style.color = 'var(--neon-magenta)';
+                document.getElementById('stress-res-speed').innerText = maxSpeed.toFixed(1) + ' Mbps';
+                document.getElementById('stress-res-devices').innerText = "0 dispositivos (riesgo de buffering constante)";
+            }
+        }
+
+        async function measureSingleConnectionSpeed(durationMs) {
+            const controller = new AbortController();
+            const startTime = performance.now();
+            let totalBytes = 0;
+            
+            const startStream = async () => {
+                try {
+                    const cacheBuster = Math.floor(Math.random() * 10000000) + Date.now();
+                    const res = await fetch(`${TEST_URL}&cb=${cacheBuster}`, { signal: controller.signal });
+                    if(res.ok) {
+                        const reader = res.body.getReader();
+                        while(true) {
+                            const { done, value } = await reader.read().catch(() => ({done:true}));
+                            if(done) break;
+                            if(value) totalBytes += value.length;
+                        }
+                    }
+                } catch(e) {}
+            };
+
+            const timer = setTimeout(() => controller.abort(), durationMs);
+            await Promise.all([startStream(), startStream()]); // 2 conexiones paralelas
+            clearTimeout(timer);
+            
+            const elapsed = performance.now() - startTime;
+            const elapsedSecs = Math.max(elapsed, 100) / 1000;
+            const bps = (totalBytes * 8) / elapsedSecs;
+            return bps / 1000000;
         }
 
     </script>
