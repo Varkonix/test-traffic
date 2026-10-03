@@ -473,6 +473,15 @@
                 </div>
             </div>
 
+            <div class="result-card" style="grid-column: 1 / -1; background: rgba(255, 255, 255, 0.05); text-align: center; margin-top: -1rem; margin-bottom: 2rem;">
+                <h3 style="color: var(--neon-green); margin-bottom: 1rem; justify-content: center;">🌍 Latencia Global (Ping por Región)</h3>
+                <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 1rem;">
+                    <div><span class="stat-label">Ping Sudamérica:</span> <span class="stat-val" id="res-ping-sa">Midiendo...</span></div>
+                    <div><span class="stat-label">Ping Estados Unidos:</span> <span class="stat-val" id="res-ping-us">Midiendo...</span></div>
+                    <div><span class="stat-label">Ping Europa:</span> <span class="stat-val" id="res-ping-eu">Midiendo...</span></div>
+                </div>
+            </div>
+
             <div style="margin-bottom: 1rem; color: var(--text-muted); font-size: 0.9rem; text-align: center;">
                 Comparativa de Curvas (Cyan: Gaming | Magenta: Descarga Pesada)
             </div>
@@ -493,10 +502,10 @@
             const ua = navigator.userAgent;
             let os = "Desconocido", browser = "Desconocido";
             if (ua.includes("Win")) os = "Windows";
+            else if (ua.includes("iPhone") || ua.includes("iPad") || ua.includes("iPod") || ua.includes("like Mac")) os = "iOS";
             else if (ua.includes("Mac")) os = "MacOS";
-            else if (ua.includes("Linux")) os = "Linux";
             else if (ua.includes("Android")) os = "Android";
-            else if (ua.includes("like Mac")) os = "iOS";
+            else if (ua.includes("Linux")) os = "Linux";
             
             if (ua.includes("Chrome")) browser = "Chrome";
             else if (ua.includes("Firefox")) browser = "Firefox";
@@ -750,25 +759,28 @@
 
             // 2. Data Streams
             const streams = Array.from({length: CONCURRENT_CONNECTIONS}).map(async (_, i) => {
-                try {
-                    const cacheBuster = Math.floor(Math.random() * 10000000) + i;
-                    const res = await fetch(`${TEST_URL}&cb=${cacheBuster}`, { signal });
-                    if (!res.ok) {
-                        showError(phaseId, new Error(`HTTP ${res.status}`));
-                        return;
-                    }
-                    const reader = res.body.getReader();
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        if (value) {
-                            totalBytesLoaded += value.length;
-                            intervalBytes += value.length;
-                            lastDataReceivedTime = performance.now(); // update lifeline
+                while (!signal.aborted) {
+                    try {
+                        const cacheBuster = Math.floor(Math.random() * 10000000) + i + Date.now();
+                        const res = await fetch(`${TEST_URL}&cb=${cacheBuster}`, { signal });
+                        if (!res.ok) {
+                            showError(phaseId, new Error(`HTTP ${res.status}`));
+                            break;
                         }
+                        const reader = res.body.getReader();
+                        while (!signal.aborted) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            if (value) {
+                                totalBytesLoaded += value.length;
+                                intervalBytes += value.length;
+                                lastDataReceivedTime = performance.now(); // update lifeline
+                            }
+                        }
+                    } catch (err) {
+                        if (err.name !== 'AbortError') showError(phaseId, err);
+                        break;
                     }
-                } catch (err) {
-                    if (err.name !== 'AbortError') showError(phaseId, err);
                 }
             });
 
@@ -822,6 +834,31 @@
         }
 
         // --- Main Flow ---
+        async function measureRegionalPings() {
+            const regions = [
+                { id: 'sa', url: 'https://dynamodb.sa-east-1.amazonaws.com/' },
+                { id: 'us', url: 'https://dynamodb.us-east-1.amazonaws.com/' },
+                { id: 'eu', url: 'https://dynamodb.eu-central-1.amazonaws.com/' }
+            ];
+            
+            for (const r of regions) {
+                try {
+                    // Primer intento para handshake/DNS
+                    await fetch(r.url, { mode: 'no-cors', cache: 'no-store' }).catch(() => {});
+                    
+                    // Medición real
+                    const start = performance.now();
+                    await fetch(r.url, { mode: 'no-cors', cache: 'no-store' });
+                    const latency = performance.now() - start;
+                    const el = document.getElementById(`res-ping-${r.id}`);
+                    if (el) el.innerText = latency.toFixed(0) + ' ms';
+                } catch(e) {
+                    const el = document.getElementById(`res-ping-${r.id}`);
+                    if (el) el.innerText = 'Error';
+                }
+            }
+        }
+
         async function startTest() {
             document.getElementById('btn-start').disabled = true;
             document.getElementById('global-error').style.display = 'none';
@@ -834,6 +871,9 @@
 
             setView('view-testing');
             resizeCanvas(liveCanvas);
+
+            // Medir pings regionales en segundo plano
+            measureRegionalPings();
 
             // FASE 1
             const pTitle = document.getElementById('phase-title');
