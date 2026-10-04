@@ -1129,14 +1129,31 @@
                 let pings = [];
                 for(let i=0; i<3; i++) {
                     const st = performance.now();
-                    await fetch(`${PING_URL}&cb=${Date.now()}`).catch(()=>{});
-                    pings.push(performance.now() - st);
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000);
+                    let success = false;
+                    try {
+                        await fetch(`${PING_URL}&cb=${Date.now()}`, { signal: controller.signal });
+                        success = true;
+                    } catch(e) {}
+                    clearTimeout(timeoutId);
+                    if (success) {
+                        pings.push(performance.now() - st);
+                    }
                 }
-                testData.idlePing = pings.reduce((a,b)=>a+b,0)/pings.length;
-                const el = document.getElementById('ctx-idle-ping');
-                if(el) el.innerText = testData.idlePing.toFixed(0) + ' ms';
+                if (pings.length > 0) {
+                    testData.idlePing = pings.reduce((a,b)=>a+b,0)/pings.length;
+                    const el = document.getElementById('ctx-idle-ping');
+                    if(el) el.innerText = testData.idlePing.toFixed(0) + ' ms';
+                } else {
+                    testData.idlePing = 50;
+                    const el = document.getElementById('ctx-idle-ping');
+                    if(el) el.innerText = 'No disponible';
+                }
             } catch(e) {
                 testData.idlePing = 50;
+                const el = document.getElementById('ctx-idle-ping');
+                if(el) el.innerText = 'No disponible';
             }
 
             const regions = [
@@ -1148,11 +1165,17 @@
             for (const r of regions) {
                 try {
                     // Primer intento para handshake/DNS
-                    await fetch(r.url, { mode: 'no-cors', cache: 'no-store' }).catch(() => {});
+                    const c1 = new AbortController();
+                    const t1 = setTimeout(() => c1.abort(), 5000);
+                    await fetch(r.url, { mode: 'no-cors', cache: 'no-store', signal: c1.signal }).catch(() => {});
+                    clearTimeout(t1);
                     
                     // Medición real
                     const start = performance.now();
-                    await fetch(r.url, { mode: 'no-cors', cache: 'no-store' });
+                    const c2 = new AbortController();
+                    const t2 = setTimeout(() => c2.abort(), 5000);
+                    await fetch(r.url, { mode: 'no-cors', cache: 'no-store', signal: c2.signal });
+                    clearTimeout(t2);
                     const latency = performance.now() - start;
                     
                     // Actualizar todos los elementos que tengan el ID del ping (en header y en resultados)
@@ -1160,7 +1183,7 @@
                     els.forEach(el => el.innerText = latency.toFixed(0) + ' ms');
                 } catch(e) {
                     const els = document.querySelectorAll(`#res-ping-${r.id}`);
-                    els.forEach(el => el.innerText = 'Error');
+                    els.forEach(el => el.innerText = 'No disponible');
                 }
             }
         }
@@ -1390,83 +1413,169 @@
             
             qualities.forEach(q => document.getElementById(q.id).className = 'quality-bar');
             
-            status.innerText = `Midiendo velocidad sostenida...`;
-            const testDuration = 8000;
-            const speedMbps = await measureSingleConnectionSpeed(testDuration);
+            status.innerText = `Iniciando en 720p HD...`;
+            status.style.color = 'var(--neon-cyan)';
             
-            if (!isTesting) return;
+            const totalDurationMs = 45000;
+            const evalWindowMs = 6000; 
+            const controller = new AbortController();
+            globalAbortController = controller;
+            const startTime = performance.now();
+            let totalBytes = 0;
+            let windowBytes = 0;
+            let windowStartTime = startTime;
+            
+            let currentQualityIndex = 0; // Empieza en 720p
+            document.getElementById(qualities[0].id).classList.add('active');
+
+            let upgrades = 0;
+            let downgrades = 0;
+            let qualityTimeMap = {0:0, 1:0, 2:0, 3:0};
+            let lastTick = startTime;
+
+            const startStream = async () => {
+                while(!controller.signal.aborted) {
+                    try {
+                        const cacheBuster = Math.floor(Math.random() * 10000000) + Date.now();
+                        const res = await fetch(`${TEST_URL}&cb=${cacheBuster}`, { signal: controller.signal });
+                        if(res.ok) {
+                            const reader = res.body.getReader();
+                            while(!controller.signal.aborted) {
+                                const { done, value } = await reader.read().catch(() => ({done:true}));
+                                if(done) break;
+                                if(value) {
+                                    totalBytes += value.length;
+                                    windowBytes += value.length;
+                                }
+                            }
+                        }
+                    } catch(e) {
+                        if (e.name !== 'AbortError') await new Promise(r => setTimeout(r, 1000));
+                    }
+                }
+            };
+
+            const streamPromise1 = startStream();
+            const streamPromise2 = startStream();
+
+            const timer = setInterval(() => {
+                const now = performance.now();
+                const dt = now - lastTick;
+                qualityTimeMap[currentQualityIndex] += dt;
+                lastTick = now;
+
+                const windowElapsed = now - windowStartTime;
+                if (windowElapsed >= evalWindowMs) {
+                    const bps = (windowBytes * 8) / (windowElapsed / 1000);
+                    const speedMbps = bps / 1000000;
+                    
+                    windowBytes = 0;
+                    windowStartTime = now;
+
+                    let newIndex = currentQualityIndex;
+                    
+                    if (speedMbps < qualities[currentQualityIndex].req) {
+                        while(newIndex > 0 && speedMbps < qualities[newIndex].req) {
+                            newIndex--;
+                        }
+                    } else {
+                        while(newIndex < qualities.length - 1 && speedMbps >= qualities[newIndex + 1].req) {
+                            newIndex++;
+                        }
+                    }
+
+                    if (newIndex > currentQualityIndex) {
+                        status.innerText = `Vel: ${speedMbps.toFixed(1)} Mbps. Subiendo a ${qualities[newIndex].name}...`;
+                        status.style.color = 'var(--neon-green)';
+                        upgrades++;
+                    } else if (newIndex < currentQualityIndex) {
+                        status.innerText = `Caída a ${speedMbps.toFixed(1)} Mbps. Bajando a ${qualities[newIndex].name}...`;
+                        status.style.color = 'var(--neon-magenta)';
+                        downgrades++;
+                    } else {
+                        status.innerText = `Vel: ${speedMbps.toFixed(1)} Mbps. Manteniendo ${qualities[currentQualityIndex].name}`;
+                        status.style.color = 'var(--neon-cyan)';
+                    }
+
+                    document.getElementById(qualities[currentQualityIndex].id).classList.remove('active');
+                    currentQualityIndex = newIndex;
+                    document.getElementById(qualities[currentQualityIndex].id).classList.add('active');
+                }
+
+                if (now - startTime >= totalDurationMs) {
+                    clearInterval(timer);
+                    controller.abort();
+                }
+            }, 500);
+
+            await new Promise(r => {
+                const checkAbort = setInterval(() => {
+                    if (controller.signal.aborted) {
+                        clearInterval(checkAbort);
+                        r();
+                    }
+                }, 200);
+            });
+
+            await Promise.allSettled([streamPromise1, streamPromise2]);
+            
+            if (!isTesting) return; // Cancelado
             isTesting = false;
             releaseWakeLock();
 
-            let maxQuality = null;
-            let maxSpeed = speedMbps;
-            
+            let predominantQualityIndex = 0;
+            let maxTime = -1;
             for (let i = 0; i < qualities.length; i++) {
-                const q = qualities[i];
-                const el = document.getElementById(q.id);
-                if (speedMbps >= q.req) {
-                    el.classList.add('success');
-                    maxQuality = q;
-                } else {
-                    el.classList.add('fail');
+                if (qualityTimeMap[i] > maxTime) {
+                    maxTime = qualityTimeMap[i];
+                    predominantQualityIndex = i;
                 }
             }
+
+            const totalElapsedSecs = (performance.now() - startTime) / 1000;
+            const avgSpeedMbps = ((totalBytes * 8) / totalElapsedSecs) / 1000000;
             
+            let maxQuality = null;
+            if (avgSpeedMbps >= qualities[0].req) {
+                maxQuality = qualities[predominantQualityIndex];
+            }
+
+            qualities.forEach((q, i) => {
+                const el = document.getElementById(q.id);
+                el.classList.remove('active');
+                if (maxQuality && i <= predominantQualityIndex) {
+                    el.classList.add('success');
+                } else if (maxQuality) {
+                    el.classList.add('fail');
+                }
+            });
+
             status.innerText = "Prueba completada.";
+            status.style.color = 'var(--neon-cyan)';
             btn.disabled = false;
             
             resBox.style.display = 'block';
             if(maxQuality) {
-                document.getElementById('stress-res-q').innerText = maxQuality.name;
+                document.getElementById('stress-res-q').innerText = `${maxQuality.name} Sostenido`;
                 document.getElementById('stress-res-q').style.color = 'var(--neon-green)';
-                document.getElementById('stress-res-speed').innerText = maxSpeed.toFixed(1) + ' Mbps';
-                const devices = Math.floor(maxSpeed / maxQuality.req);
-                document.getElementById('stress-res-devices').innerText = `${devices} dispositivo(s) simultáneo(s) a ${maxQuality.name}`;
+                document.getElementById('stress-res-speed').innerText = avgSpeedMbps.toFixed(1) + ' Mbps (Promedio)';
+                document.getElementById('stress-res-devices').innerText = `Cambios: ${upgrades} subidas / ${downgrades} bajadas`;
+                document.getElementById('stress-res-devices').style.color = 'var(--text-main)';
             } else {
                 document.getElementById('stress-res-q').innerText = "Insuficiente para 720p";
                 document.getElementById('stress-res-q').style.color = 'var(--neon-magenta)';
-                document.getElementById('stress-res-speed').innerText = maxSpeed.toFixed(1) + ' Mbps';
-                document.getElementById('stress-res-devices').innerText = "0 dispositivos (riesgo de buffering constante)";
+                document.getElementById('stress-res-speed').innerText = avgSpeedMbps.toFixed(1) + ' Mbps (Promedio)';
+                document.getElementById('stress-res-devices').innerText = `Cambios: ${upgrades} subidas / ${downgrades} bajadas`;
+                document.getElementById('stress-res-devices').style.color = 'var(--text-main)';
             }
 
             let history = JSON.parse(localStorage.getItem('speedtest_history')) || {};
             const provider = document.getElementById('ctx-isp').innerText;
             if(history[provider] && history[provider].length > 0) {
                 history[provider][0].stress_q = maxQuality ? maxQuality.name : "Fail";
-                history[provider][0].stress_speed = maxSpeed.toFixed(1);
+                history[provider][0].stress_speed = avgSpeedMbps.toFixed(1);
                 localStorage.setItem('speedtest_history', JSON.stringify(history));
             }
-        }
-
-        async function measureSingleConnectionSpeed(durationMs) {
-            const controller = new AbortController();
-            globalAbortController = controller;
-            const startTime = performance.now();
-            let totalBytes = 0;
-            
-            const startStream = async () => {
-                try {
-                    const cacheBuster = Math.floor(Math.random() * 10000000) + Date.now();
-                    const res = await fetch(`${TEST_URL}&cb=${cacheBuster}`, { signal: controller.signal });
-                    if(res.ok) {
-                        const reader = res.body.getReader();
-                        while(!controller.signal.aborted) {
-                            const { done, value } = await reader.read().catch(() => ({done:true}));
-                            if(done) break;
-                            if(value) totalBytes += value.length;
-                        }
-                    }
-                } catch(e) {}
-            };
-
-            const timer = setTimeout(() => controller.abort(), durationMs);
-            await Promise.all([startStream(), startStream()]); // 2 conexiones paralelas
-            clearTimeout(timer);
-            
-            const elapsed = performance.now() - startTime;
-            const elapsedSecs = Math.max(elapsed, 100) / 1000;
-            const bps = (totalBytes * 8) / elapsedSecs;
-            return bps / 1000000;
         }
 
     </script>
