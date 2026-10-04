@@ -1,4 +1,4 @@
-const CACHE_NAME = 'speedtest-v1';
+const CACHE_NAME = 'speedtest-v2';
 
 self.addEventListener('install', (event) => {
     event.waitUntil(
@@ -9,6 +9,20 @@ self.addEventListener('install', (event) => {
                 './manifest.json',
                 './icon.svg'
             ]);
+        })
+    );
+});
+
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then((cacheNames) => {
+            return Promise.all(
+                cacheNames.map((cacheName) => {
+                    if (cacheName !== CACHE_NAME) {
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
         })
     );
 });
